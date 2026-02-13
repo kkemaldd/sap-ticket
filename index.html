@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAP Operasyon Yönetim Paneli</title>
+    <!-- Tailwind CSS ve Lucide İkonları -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        /* Beyaz ekranı önlemek için yükleme öncesi stil */
+        #root:empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: #0a0f1c;
+            color: #4dabf7;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-[#0a0f1c] text-slate-200">
+    <div id="root">Sistem Yükleniyor...</div>
+
+    <!-- React, ReactDOM ve Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect, useRef } = React;
+
+        // İkon Bileşeni
+        const Icon = ({ name, size = 20, className = "" }) => {
+            useEffect(() => { 
+                if (window.lucide) {
+                    window.lucide.createIcons(); 
+                }
+            }, [name]);
+            return <i data-lucide={name} style={{width: size, height: size}} className={className}></i>;
+        };
+
+        const COLORS = {
+            bg: 'bg-[#0a0f1c]',
+            card: 'bg-[#151c2d]',
+            status: {
+                BEKLEMEDE: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+                TAMAMLANDI: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+                'DEVAM EDİYOR': 'bg-sky-500/10 text-sky-500 border-sky-500/20',
+            }
+        };
+
+        const formatFullDate = (date) => {
+            if (!date) return '-';
+            const d = new Date(date);
+            return d.toLocaleString('tr-TR', {
+                day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        };
+
+        const App = () => {
+            const [requests, setRequests] = useState([
+                { id: '1014', title: 'Yeni Kategori Tanımı', requester: 'Fatma Aydın', status: 'BEKLEMEDE', openedAt: new Date(Date.now() - 3600000).toISOString() },
+                { id: '1009', title: 'Para Birimi Düzenlenmesi', requester: 'Emre Saruhan', status: 'TAMAMLANDI', openedAt: new Date(Date.now() - 86400000).toISOString() },
+                { id: '1011', title: 'Zararına Satış Raporu', requester: 'Onur Sarıkaya', status: 'DEVAM EDİYOR', openedAt: new Date(Date.now() - 18000000).toISOString() },
+            ]);
+
+            const [showModal, setShowModal] = useState(false);
+            const [deleteConfirm, setDeleteConfirm] = useState(null);
+            const [activeDropdown, setActiveDropdown] = useState(null);
+            
+            const idRef = useRef();
+            const titleRef = useRef();
+            const reqRef = useRef();
+
+            const stats = useMemo(() => {
+                const total = requests.length;
+                const completed = requests.filter(r => r.status === 'TAMAMLANDI').length;
+                const ongoing = requests.filter(r => r.status === 'DEVAM EDİYOR').length;
+                const efficiency = total > 0 ? Math.round((completed / total) * 100) : 0;
+                return { total, completed, ongoing, efficiency };
+            }, [requests]);
+
+            const addTicket = (e) => {
+                e.preventDefault();
+                const entry = {
+                    id: idRef.current.value,
+                    title: titleRef.current.value,
+                    requester: reqRef.current.value,
+                    status: 'BEKLEMEDE',
+                    openedAt: new Date().toISOString()
+                };
+                setRequests([entry, ...requests]);
+                setShowModal(false);
+            };
+
+            const updateStatus = (id, newStatus) => {
+                setRequests(prev => prev.map(req => 
+                    req.id === id 
+                    ? { ...req, status: newStatus, openedAt: new Date().toISOString() } 
+                    : req
+                ));
+                setActiveDropdown(null);
+            };
+
+            const deleteRequest = (id) => {
+                setRequests(prev => prev.filter(req => req.id !== id));
+                setDeleteConfirm(null);
+            };
+
+            return (
+                <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto animate-fade-in">
+                    <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+                                <Icon name="layout-dashboard" size={32} className="text-[#4dabf7]" />
+                                SAP Operasyon Paneli
+                            </h1>
+                            <p className="text-slate-400 mt-1 text-sm">Sistem durumu ve dış kaynak talep takibi</p>
+                        </div>
+                        <button 
+                            onClick={() => setShowModal(true)} 
+                            className="bg-[#00a8e8] hover:bg-[#0096d1] text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-sky-500/20 transition-all active:scale-95"
+                        >
+                            <Icon name="plus-circle" /> Yeni Talep
+                        </button>
+                    </header>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                        <StatCard name="bar-chart-3" label="TOPLAM TALEP" value={stats.total} color="text-sky-400" />
+                        <StatCard name="check-circle-2" label="TAMAMLANAN" value={stats.completed} color="text-emerald-400" />
+                        <StatCard name="clock" label="DEVAM EDEN" value={stats.ongoing} color="text-yellow-400" />
+                        <StatCard name="pie-chart" label="VERİMLİLİK" value={`%${stats.efficiency}`} color="text-purple-400" />
+                    </div>
+
+                    <div className="bg-[#151c2d] rounded-3xl border border-slate-800/50 overflow-hidden shadow-2xl">
+                        <div className="p-6 border-b border-slate-800/50 bg-white/5">
+                            <h3 className="text-lg font-semibold text-white italic text-center md:text-left">Aktif Talepler</h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-white/[0.02]">
+                                    <tr className="text-slate-500 text-[10px] uppercase tracking-widest font-bold">
+                                        <th className="px-6 py-4">ID</th>
+                                        <th className="px-6 py-4">BAŞLIK</th>
+                                        <th className="px-6 py-4">TALEP EDEN</th>
+                                        <th className="px-6 py-4">SON GÜNCELLEME</th>
+                                        <th className="px-6 py-4 text-center">DURUM</th>
+                                        <th className="px-6 py-4 text-right">İŞLEM</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800/30">
+                                    {requests.map(r => (
+                                        <tr key={r.id} className="hover:bg-white/[0.03] transition-colors group">
+                                            <td className="px-6 py-5 text-sky-400 font-mono font-bold">#{r.id}</td>
+                                            <td className="px-6 py-5 font-semibold text-white">{r.title}</td>
+                                            <td className="px-6 py-5 text-slate-400 text-sm">{r.requester}</td>
+                                            <td className="px-6 py-5">
+                                                <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                                                    <Icon name="calendar" size={12} />
+                                                    {formatFullDate(r.openedAt)}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-5 text-center relative">
+                                                <button 
+                                                    onClick={() => setActiveDropdown(activeDropdown === r.id ? null : r.id)}
+                                                    className={`mx-auto px-3 py-1.5 rounded-full text-[10px] font-black border flex items-center gap-1.5 transition-all ${COLORS.status[r.status]}`}
+                                                >
+                                                    {r.status}
+                                                    <Icon name="chevron-down" size={10} />
+                                                </button>
+                                                {activeDropdown === r.id && (
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-40 bg-[#1a2235] border border-slate-700 rounded-xl shadow-2xl z-[100] py-2 animate-fade-in">
+                                                        {Object.keys(COLORS.status).map(s => (
+                                                            <button key={s} onClick={() => updateStatus(r.id, s)} className="w-full text-left px-4 py-2 text-[10px] font-bold hover:bg-white/10 transition-colors">
+                                                                <span className={COLORS.status[s].split(' ')[1]}>{s}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-5 text-right">
+                                                <button onClick={() => setDeleteConfirm(r.id)} className="p-2 text-slate-500 hover:text-rose-500 transition-colors">
+                                                    <Icon name="trash-2" size={18} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {showModal && (
+                        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[200] p-4">
+                            <div className="bg-[#151c2d] w-full max-w-md rounded-3xl border border-slate-700 p-8 shadow-2xl animate-fade-in relative">
+                                <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-slate-500 hover:text-white"><Icon name="x" /></button>
+                                <h2 className="text-2xl font-bold mb-6 text-white italic">Yeni Talep Kaydı</h2>
+                                <form onSubmit={addTicket} className="space-y-5">
+                                    <div>
+                                        <label className="block text-[10px] text-slate-500 mb-1.5 font-bold uppercase tracking-wider">Talep ID</label>
+                                        <input ref={idRef} type="text" autoFocus required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-sky-400 font-mono text-lg focus:border-sky-500 outline-none" placeholder="Örn: 1025" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] text-slate-500 mb-1.5 font-bold uppercase tracking-wider">İşlem Başlığı</label>
+                                        <input ref={titleRef} type="text" required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-sky-500 outline-none" placeholder="Başlık girin..." />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] text-slate-500 mb-1.5 font-bold uppercase tracking-wider">Talep Eden</label>
+                                        <input ref={reqRef} type="text" required className="w-full bg-[#0a0f1c] border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-sky-500 outline-none" placeholder="Ad Soyad" />
+                                    </div>
+                                    <div className="flex gap-3 pt-4">
+                                        <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 text-white font-medium hover:bg-white/5 rounded-xl border border-slate-700 transition-colors">Vazgeç</button>
+                                        <button type="submit" className="flex-1 py-3 bg-sky-600 text-white font-bold rounded-xl shadow-lg hover:bg-sky-500 transition-all">Kaydet</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {deleteConfirm && (
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[300] p-4">
+                            <div className="bg-[#151c2d] p-8 rounded-3xl border border-rose-500/30 text-center max-w-sm w-full shadow-2xl animate-fade-in">
+                                <Icon name="alert-triangle" size={48} className="text-rose-500 mx-auto mb-4" />
+                                <h3 className="text-xl font-bold mb-2 text-white">Kayıt Siliniyor</h3>
+                                <p className="text-slate-400 text-sm mb-6">#{deleteConfirm} ID'li talebi silmek istediğinize emin misiniz?</p>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 border border-slate-700 rounded-xl text-white">Hayır</button>
+                                    <button onClick={() => deleteRequest(deleteConfirm)} className="flex-1 py-2.5 bg-rose-600 text-white rounded-xl font-bold">Evet, Sil</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const StatCard = ({ name, label, value, color }) => (
+            <div className="bg-[#151c2d] p-6 rounded-3xl border border-slate-800/50 shadow-sm relative group hover:border-slate-700 transition-all">
+                <div className={`mb-4 p-2.5 rounded-xl bg-white/5 w-fit ${color}`}>
+                    <Icon name={name} size={20} />
+                </div>
+                <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">{label}</p>
+                <p className="text-3xl font-bold mt-1 text-white">{value}</p>
+            </div>
+        );
+
+        // React 18 ile güvenli render
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+            const root = ReactDOM.createRoot(rootElement);
+            root.render(<App />);
+        }
+    </script>
+</body>
+</html>
